@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hot Potato — Simulasi Queue | Struktur Data</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --card: #1e2130;
+    --border: #2a2e3d;
+    --accent: #f0a500;
+    --accent-dim: rgba(240,165,0,0.15);
+    --green: #2dd4a0;
+    --green-dim: rgba(45,212,160,0.15);
+    --red: #f05060;
+    --red-dim: rgba(240,80,96,0.12);
+    --blue: #5b8ef0;
+    --text: #e8eaf0;
+    --muted: #737888;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 48px;
+  }
+
+  /* HEADER */
+  header {
+    width: 100%;
+    max-width: 860px;
+    margin-bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(240,165,0,0.3);
+    letter-spacing: 0.06em;
+  }
+  .badge.green {
+    background: var(--green-dim);
+    color: var(--green);
+    border-color: rgba(45,212,160,0.3);
+  }
+  h1 {
+    font-size: clamp(24px, 5vw, 40px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  h1 span { color: var(--accent); }
+  .subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 540px;
+  }
+  .algo-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--blue);
+    background: rgba(91,142,240,0.1);
+    border: 1px solid rgba(91,142,240,0.25);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+
+  /* MAIN LAYOUT */
+  .main-grid {
+    width: 100%;
+    max-width: 860px;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 18px;
+  }
+  @media (max-width: 700px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* ARENA */
+  #arena-card { display: flex; flex-direction: column; align-items: center; }
+  #arena {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    margin: 8px auto;
+    flex-shrink: 0;
+  }
+  .player-node {
+    position: absolute;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    border: 2px solid transparent;
+    transition: all 0.3s cubic-bezier(.4,0,.2,1);
+    user-select: none;
+    background: var(--surface);
+    border-color: var(--border);
+  }
+  .player-node .avatar { font-size: 20px; line-height: 1; }
+  .player-node .pname {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .player-node.active {
+    border-color: var(--accent);
+    background: rgba(240,165,0,0.1);
+    box-shadow: 0 0 0 4px rgba(240,165,0,0.12), 0 0 20px rgba(240,165,0,0.15);
+    transform: scale(1.12);
+  }
+  .player-node.active .pname { color: var(--accent); }
+  .player-node.eliminated {
+    opacity: 0.2;
+    transform: scale(0.8);
+    filter: grayscale(1);
+  }
+  .player-node.winner {
+    border-color: var(--green);
+    background: var(--green-dim);
+    box-shadow: 0 0 0 5px rgba(45,212,160,0.15), 0 0 24px rgba(45,212,160,0.18);
+    transform: scale(1.18);
+    animation: winner-pulse 1.4s ease-in-out infinite;
+  }
+  .player-node.winner .pname { color: var(--green); }
+  @keyframes winner-pulse {
+    0%,100% { box-shadow: 0 0 0 5px rgba(45,212,160,0.15), 0 0 24px rgba(45,212,160,0.18); }
+    50% { box-shadow: 0 0 0 9px rgba(45,212,160,0.08), 0 0 36px rgba(45,212,160,0.28); }
+  }
+  #potato {
+    position: absolute;
+    font-size: 26px;
+    pointer-events: none;
+    transition: left 0.28s cubic-bezier(.4,0,.2,1), top 0.28s cubic-bezier(.4,0,.2,1);
+    z-index: 10;
+    filter: drop-shadow(0 2px 8px rgba(240,165,0,0.4));
+  }
+
+  /* QUEUE VISUALIZER */
+  .queue-strip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 4px 0;
+    min-height: 46px;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .queue-strip::-webkit-scrollbar { display: none; }
+  .q-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 11px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    white-space: nowrap;
+    transition: all 0.25s;
+    flex-shrink: 0;
+  }
+  .q-label.head {
+    background: rgba(240,165,0,0.12);
+    border-color: rgba(240,165,0,0.4);
+    color: var(--accent);
+  }
+  .q-label.tail {
+    background: rgba(91,142,240,0.1);
+    border-color: rgba(91,142,240,0.3);
+    color: var(--blue);
+  }
+  .q-arrow {
+    color: var(--border);
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .q-legend {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .q-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .q-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+  .q-dot.head { background: var(--accent); }
+  .q-dot.tail { background: var(--blue); }
+  .q-dot.mid { background: var(--border); }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .stat-box .stat-val {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-box .stat-val.accent { color: var(--accent); }
+  .stat-box .stat-val.green { color: var(--green); }
+  .stat-box .stat-val.red { color: var(--red); }
+  .stat-box .stat-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 4px;
+  }
+
+  /* LOG */
+  #log-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 40px;
+    line-height: 1.5;
+  }
+  #log-box b { color: var(--accent); font-weight: 500; }
+  #log-box .green { color: var(--green); }
+
+  /* CONTROLS */
+  .controls { display: flex; flex-direction: column; gap: 12px; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn {
+    flex: 1;
+    padding: 10px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: 0.02em;
+  }
+  .btn:hover { background: var(--card); border-color: var(--muted); }
+  .btn.primary {
+    background: var(--accent-dim);
+    border-color: rgba(240,165,0,0.4);
+    color: var(--accent);
+  }
+  .btn.primary:hover { background: rgba(240,165,0,0.25); }
+  .btn.reset {
+    background: var(--red-dim);
+    border-color: rgba(240,80,96,0.3);
+    color: var(--red);
+    flex: 0 0 auto;
+    padding: 10px 16px;
+  }
+  .btn.reset:hover { background: rgba(240,80,96,0.2); }
+
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .slider-label span {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 2px rgba(240,165,0,0.25);
+  }
+
+  /* WINNER BANNER */
+  #winner-banner {
+    display: none;
+    width: 100%;
+    max-width: 860px;
+    background: var(--green-dim);
+    border: 1px solid rgba(45,212,160,0.35);
+    border-radius: 14px;
+    padding: 18px 24px;
+    text-align: center;
+    margin-bottom: 18px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--green);
+    letter-spacing: 0.02em;
+  }
+
+  /* CODE BLOCK */
+  .code-card {
+    width: 100%;
+    max-width: 860px;
+    margin-top: 18px;
+  }
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .code-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .code-file {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--blue);
+    background: rgba(91,142,240,0.1);
+    border: 1px solid rgba(91,142,240,0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #c8ccd8;
+    tab-size: 2;
+  }
+  .kw { color: #c792ea; }
+  .fn { color: #82aaff; }
+  .st { color: #c3e88d; }
+  .cm { color: var(--muted); font-style: italic; }
+  .num { color: #f78c6c; }
+  .cls { color: #ffcb6b; }
+
+  /* FOOTER */
+  footer {
+    width: 100%; max-width: 860px;
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  footer p { font-size: 12px; color: var(--muted); }
+  footer .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <span class="badge">Struktur Data &amp; Algoritma</span>
+    <span class="badge green">Kasus Implementasi Queue</span>
+  </div>
+  <h1>Hot <span>Potato</span> — Simulasi Queue</h1>
+  <p class="subtitle">
+    Permainan Hot Potato diimplementasikan menggunakan <span class="algo-tag">Queue FIFO</span> —
+    operasi <span class="algo-tag">enqueue()</span> dan <span class="algo-tag">dequeue()</span>
+    mensimulasikan oper kentang melingkar hingga tersisa satu pemenang.
+  </p>
+</header>
+
+<div id="winner-banner"></div>
+
+<div class="main-grid">
+
+  <!-- LEFT: Arena + Queue -->
+  <div style="display:flex;flex-direction:column;gap:18px;">
+
+    <div class="card" id="arena-card">
+      <div class="card-title">Arena Permainan</div>
+      <div id="arena">
+        <div id="potato">🥔</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Queue (FIFO) — Pemain Aktif</div>
+      <div class="queue-strip" id="queue-vis"></div>
+      <div class="q-legend">
+        <div class="q-legend-item"><div class="q-dot head"></div>front (dequeue)</div>
+        <div class="q-legend-item"><div class="q-dot tail"></div>rear (enqueue)</div>
+        <div class="q-legend-item"><div class="q-dot mid"></div>anggota</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Log Operasi</div>
+      <div id="log-box">Tekan <b>Mulai</b> atau <b>Langkah</b> untuk memulai permainan.</div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Stats + Controls -->
+  <div style="display:flex;flex-direction:column;gap:18px;">
+
+    <div class="card">
+      <div class="card-title">Statistik</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-val accent" id="stat-pass">0</div>
+          <div class="stat-lbl">Total Oper</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-active">6</div>
+          <div class="stat-lbl">Pemain Aktif</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val red" id="stat-elim">0</div>
+          <div class="stat-lbl">Tersingkir</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="stat-n">4</div>
+          <div class="stat-lbl">Oper/Ronde</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card controls">
+      <div class="card-title">Kontrol</div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btn-play" onclick="togglePlay()">▶ Mulai</button>
+        <button class="btn" id="btn-step" onclick="stepOnce()">→ Langkah</button>
+        <button class="btn reset" onclick="resetGame()">↺</button>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label">
+          Kecepatan Animasi
+          <span id="speed-label">Sedang</span>
+        </div>
+        <input type="range" id="speed-range" min="1" max="5" value="3" step="1"
+          oninput="updateSpeed(this.value)">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label">
+          Jumlah Oper per Ronde (N)
+          <span id="n-label">4</span>
+        </div>
+        <input type="range" id="n-range" min="2" max="8" value="4" step="1"
+          oninput="updateN(this.value)">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Cara Kerja Queue</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:var(--muted);line-height:1.65;">
+        <div>
+          <span style="font-family:var(--mono);color:var(--accent);font-size:11px;">enqueue() + dequeue()</span><br>
+          Oper kentang: dequeue dari front, enqueue ke rear — mensimulasikan lingkaran.
+        </div>
+        <div>
+          <span style="font-family:var(--mono);color:var(--red);font-size:11px;">dequeue() tanpa enqueue()</span><br>
+          Setelah N oper, pemain di front langsung disingkir dan tidak dikembalikan.
+        </div>
+        <div>
+          <span style="font-family:var(--mono);color:var(--green);font-size:11px;">queue.size() == 1</span><br>
+          Kondisi berhenti — sisa satu pemain adalah pemenang.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CODE SECTION -->
+<div class="card code-card">
+  <div class="code-header">
+    <div class="code-title">Implementasi Python</div>
+    <span class="code-file">hot_potato.py</span>
+  </div>
+  <pre><span class="kw">def</span> <span class="fn">hot_potato</span>(names, num):
+    <span class="cm"># Masukkan semua pemain ke queue</span>
+    q = Queue()
+    <span class="kw">for</span> name <span class="kw">in</span> names:
+        q.enqueue(name)          <span class="cm"># enqueue() tiap pemain</span>
+
+    <span class="kw">while</span> <span class="fn">len</span>(q) &gt; <span class="num">1</span>:
+        <span class="cm"># Oper kentang: dequeue depan → enqueue belakang</span>
+        <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(num):
+            q.enqueue(q.dequeue())   <span class="cm"># simulasi oper melingkar</span>
+
+        q.dequeue()              <span class="cm"># tersingkir! (tanpa enqueue)</span>
+
+    <span class="kw">return</span> q.dequeue()          <span class="cm"># satu pemain tersisa = pemenang</span>
+
+
+<span class="cm"># Contoh penggunaan</span>
+pemain = [<span class="st">"Budi"</span>, <span class="st">"Ani"</span>, <span class="st">"Citra"</span>, <span class="st">"Dedi"</span>, <span class="st">"Eka"</span>, <span class="st">"Fani"</span>]
+pemenang = <span class="fn">hot_potato</span>(pemain, <span class="num">4</span>)
+<span class="fn">print</span>(<span class="st">f"Pemenang: {pemenang}"</span>)</pre>
+</div>
+
+<footer>
+  <p>Tugas Struktur Data &amp; Algoritma — Implementasi Queue: Kasus Hot Potato</p>
+  <div class="tags">
+    <span class="badge">Queue</span>
+    <span class="badge">FIFO</span>
+    <span class="badge">enqueue/dequeue</span>
+    <span class="badge green">Animasi Interaktif</span>
+  </div>
+</footer>
+
+<script>
+const PLAYERS = [
+  { name: "Budi",  emoji: "👦" },
+  { name: "Ani",   emoji: "👧" },
+  { name: "Citra", emoji: "👩" },
+  { name: "Dedi",  emoji: "🧑" },
+  { name: "Eka",   emoji: "👨" },
+  { name: "Fani",  emoji: "🧒" },
+];
+
+const SPEED_MAP = { 1: 1500, 2: 1000, 3: 650, 4: 350, 5: 160 };
+const SPEED_LABEL = { 1:"Sangat Lambat", 2:"Lambat", 3:"Sedang", 4:"Cepat", 5:"Turbo" };
+
+let queue = [];
+let eliminated = [];
+let passCount = 0;
+let currentN = 4;
+let passInRound = 0;
+let speed = 650;
+let playing = false;
+let timer = null;
+let gameOver = false;
+
+function buildPlayers() {
+  const arena = document.getElementById('arena');
+  arena.querySelectorAll('.player-node').forEach(e => e.remove());
+  const n = PLAYERS.length;
+  const R = 110, cx = 150, cy = 150;
+  PLAYERS.forEach((p, i) => {
+    const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+    const x = cx + R * Math.cos(angle) - 29;
+    const y = cy + R * Math.sin(angle) - 29;
+    const el = document.createElement('div');
+    el.className = 'player-node';
+    el.id = 'pl-' + i;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.innerHTML = `<div class="avatar">${p.emoji}</div><div class="pname">${p.name}</div>`;
+    arena.appendChild(el);
+  });
+}
+
+function center(idx) {
+  const el = document.getElementById('pl-' + idx);
+  if (!el) return { x: 150, y: 150 };
+  return { x: parseInt(el.style.left) + 29, y: parseInt(el.style.top) + 29 };
+}
+
+function movePotato(idx) {
+  const { x, y } = center(idx);
+  const po = document.getElementById('potato');
+  po.style.left = (x - 15) + 'px';
+  po.style.top = (y - 30) + 'px';
+}
+
+function highlightActive(idx) {
+  PLAYERS.forEach((_, i) => {
+    const el = document.getElementById('pl-' + i);
+    if (!el) return;
+    el.classList.remove('active', 'winner');
+    if (eliminated.includes(i)) el.classList.add('eliminated');
+    else if (i === idx) el.classList.add('active');
+  });
+}
+
+function renderQueue() {
+  const vis = document.getElementById('queue-vis');
+  vis.innerHTML = '';
+  queue.forEach((idx, qi) => {
+    if (qi > 0) {
+      const arr = document.createElement('span');
+      arr.className = 'q-arrow';
+      arr.textContent = '→';
+      vis.appendChild(arr);
+    }
+    const item = document.createElement('div');
+    const isHead = qi === 0;
+    const isTail = qi === queue.length - 1 && queue.length > 1;
+    item.className = 'q-label' + (isHead ? ' head' : '') + (isTail && !isHead ? ' tail' : '');
+    item.textContent = PLAYERS[idx].emoji + ' ' + PLAYERS[idx].name;
+    vis.appendChild(item);
+  });
+  document.getElementById('stat-pass').textContent = passCount;
+  document.getElementById('stat-elim').textContent = eliminated.length;
+  document.getElementById('stat-active').textContent = queue.length;
+  document.getElementById('stat-n').textContent = currentN;
+}
+
+function setLog(html) {
+  document.getElementById('log-box').innerHTML = html;
+}
+
+function doStep() {
+  if (gameOver) return;
+  if (queue.length <= 1) { endGame(); return; }
+
+  if (passInRound < currentN) {
+    const front = queue.shift();
+    queue.push(front);
+    passInRound++;
+    passCount++;
+    const holder = queue[queue.length - 1];
+    highlightActive(holder);
+    movePotato(holder);
+    renderQueue();
+    setLog(`🥔 Dioper ke <b>${PLAYERS[holder].name}</b> — <b>enqueue(dequeue())</b> (${passInRound}/${currentN})`);
+  } else {
+    const elim = queue.shift();
+    eliminated.push(elim);
+    passInRound = 0;
+    const el = document.getElementById('pl-' + elim);
+    if (el) { el.classList.remove('active'); el.classList.add('eliminated'); }
+    if (queue.length === 1) { endGame(); return; }
+    highlightActive(queue[0]);
+    movePotato(queue[0]);
+    renderQueue();
+    setLog(`💥 <b style="color:var(--red)">${PLAYERS[elim].name}</b> tersingkir — <b>dequeue()</b> tanpa enqueue. Sisa ${queue.length} pemain.`);
+  }
+}
+
+function endGame() {
+  gameOver = true;
+  stopPlay();
+  const winner = queue[0];
+  PLAYERS.forEach((_, i) => {
+    const el = document.getElementById('pl-' + i);
+    if (!el) return;
+    el.classList.remove('active');
+    if (!eliminated.includes(i)) el.classList.add('winner');
+  });
+  movePotato(winner);
+  renderQueue();
+  setLog(`<span class="green">🏆 <b>${PLAYERS[winner].name}</b> adalah pemenangnya!</span> queue.size() == 1 → kondisi berhenti.`);
+  const banner = document.getElementById('winner-banner');
+  banner.style.display = 'block';
+  banner.innerHTML = `🏆 Pemenang: ${PLAYERS[winner].emoji} <strong>${PLAYERS[winner].name}</strong>`;
+  document.getElementById('potato').style.display = 'none';
+}
+
+function togglePlay() {
+  if (gameOver) { resetGame(); return; }
+  if (playing) stopPlay(); else startPlay();
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btn-play').textContent = '⏸ Jeda';
+  timer = setInterval(() => { doStep(); if (gameOver) stopPlay(); }, speed);
+}
+
+function stopPlay() {
+  playing = false;
+  clearInterval(timer);
+  document.getElementById('btn-play').textContent = '▶ Mulai';
+}
+
+function stepOnce() { stopPlay(); doStep(); }
+
+function resetGame() {
+  stopPlay();
+  gameOver = false;
+  eliminated = [];
+  passCount = 0;
+  passInRound = 0;
+  queue = PLAYERS.map((_, i) => i);
+  buildPlayers();
+  document.getElementById('potato').style.display = '';
+  highlightActive(queue[0]);
+  movePotato(queue[0]);
+  renderQueue();
+  document.getElementById('winner-banner').style.display = 'none';
+  setLog('Tekan <b>Mulai</b> atau <b>Langkah</b> untuk memulai permainan.');
+}
+
+function updateSpeed(v) {
+  speed = SPEED_MAP[v];
+  document.getElementById('speed-label').textContent = SPEED_LABEL[v];
+  if (playing) { stopPlay(); startPlay(); }
+}
+
+function updateN(v) {
+  currentN = parseInt(v);
+  document.getElementById('n-label').textContent = v;
+  renderQueue();
+}
+
+resetGame();
+</script>
+</body>
+</html>
